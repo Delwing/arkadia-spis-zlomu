@@ -401,7 +401,7 @@ export default function App() {
                     <p className="header__meta">
                         Aktualizacja: {formatDate(data.generatedAt)}
                         <br />
-                        <span>odświeżane co godzinę</span>
+                        <span>odświeżane kilka minut po nowych danych</span>
                     </p>
                 )}
             </header>

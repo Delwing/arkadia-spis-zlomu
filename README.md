@@ -15,7 +15,8 @@ srebro, osłona i to, jak opisuje go `i`. Waga, cena i oceny jakości nie są zb
 od umiejętności postaci, która ocenia.
 
 Strona czyta publiczny eksport:
-`https://arkadia-crowd-worker.delwing.workers.dev/crowd/snapshot`, odświeżany co godzinę.
+`https://arkadia-crowd-worker.delwing.workers.dev/crowd/snapshot`, odświeżany kilka minut po
+nadejściu nowych danych (najpóźniej po godzinie).
 
 - Każdą nazwę reprezentuje wersja potwierdzona przez najwięcej graczy (kolumna *Graczy*).
   Inne wersje tej samej nazwy są w szczegółach, pod *Inne wersje tej nazwy*.
