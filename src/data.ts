@@ -87,7 +87,9 @@ export function normalize(raw: unknown): Snapshot {
 }
 
 export async function loadSnapshot(signal?: AbortSignal): Promise<Snapshot> {
-    const response = await fetch(SNAPSHOT_URL, { signal });
+    // Always ask, even for a copy the browser holds: the export changes hourly, and
+    // a copy cached under the Worker's old max-age would otherwise stay for an hour
+    const response = await fetch(SNAPSHOT_URL, { signal, cache: 'no-cache' });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return normalize(await response.json());
 }
