@@ -2,12 +2,16 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
     choices,
     damageTypes,
+    gapLabel,
+    gapsOf,
     loadSnapshot,
     matches,
     odmianaIndex,
     players,
     pluralize,
     type Armour,
+    type Gap,
+    type GapId,
     type Item,
     type Odmiana,
     type Shield,
@@ -43,9 +47,36 @@ interface Filters {
     oslona: string;
     magik: boolean;
     srebro: boolean;
+    /** '' all, 'any' with something missing, 'complete' nothing missing, or one gap */
+    braki: '' | 'any' | 'complete' | GapId;
 }
 
-const NO_FILTERS: Filters = { typ: '', chwyt: '', obrazenia: '', oslona: '', magik: false, srebro: false };
+const NO_FILTERS: Filters = { typ: '', chwyt: '', obrazenia: '', oslona: '', magik: false, srebro: false, braki: '' };
+
+type ItemTab = Exclude<Tab, 'odmiany'>;
+
+/** The gaps each kind can have, in the order the filter offers them */
+const TAB_GAPS: Record<ItemTab, GapId[]> = {
+    bronie: ['odmiana', 'typ', 'rodzaj', 'chwyt', 'obrazenia'],
+    zbroje: ['odmiana', 'typ', 'oslona'],
+    tarcze: ['odmiana', 'oslona'],
+};
+
+function passesGaps(gaps: Gap[], braki: Filters['braki']): boolean {
+    if (!braki) return true;
+    if (braki === 'any') return gaps.length > 0;
+    if (braki === 'complete') return gaps.length === 0;
+    return gaps.some(gap => gap.id === braki);
+}
+
+function GapChips({ gaps }: { gaps: Gap[] }) {
+    if (!gaps.length) return null;
+    return (
+        <span className="gaps" title={'Brakuje: ' + gaps.map(g => g.label).join(', ')}>
+            {gaps.map(g => <span key={g.id} className="gap">{g.label}</span>)}
+        </span>
+    );
+}
 
 type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: Snapshot };
 
@@ -117,10 +148,39 @@ function itemFacts(tab: Tab, item: Item): [string, ReactNode][] {
     ];
 }
 
-function ItemDetail({ tab, item, odmiana }: { tab: Tab; item: Item; odmiana?: Odmiana }) {
+/** How a player fills each gap in, from the game */
+function GapHelp({ gaps, item }: { gaps: Gap[]; item: Item }) {
+    if (!gaps.length) return null;
+    const fromOcen = gaps.filter(g => g.id !== 'odmiana' && g.id !== 'oslona');
+    return (
+        <div className="gap-help">
+            <h4>Do uzupełnienia</h4>
+            <ul>
+                {gaps.some(g => g.id === 'odmiana') && (
+                    <li>Brak odmiany: wpisz w grze <code>odmien {item.short}</code>.</li>
+                )}
+                {gaps.some(g => g.id === 'oslona') && (
+                    // Putting a piece on says what it covers, and the client keeps that too
+                    <li>Brak osłony: oceń przedmiot w grze (<code>ocen</code>) albo go załóż.</li>
+                )}
+                {fromOcen.length > 0 && (
+                    <li>
+                        Brak {fromOcen.map(g => g.label).join(', ')}: oceń przedmiot w grze (<code>ocen</code>).
+                    </li>
+                )}
+            </ul>
+            <p className="detail__note">
+                Klient z włączonym udostępnianiem (Ustawienia → Inne) prześle to sam.
+            </p>
+        </div>
+    );
+}
+
+function ItemDetail({ tab, item, odmiana, gaps }: { tab: Tab; item: Item; odmiana?: Odmiana; gaps: Gap[] }) {
     return (
         <div className="detail">
             <div className="detail__main">
+                <GapHelp gaps={gaps} item={item} />
                 <p className="detail__opis">{item.opis}</p>
                 <p className="detail__note">Opis z jednego egzemplarza: kolejne mogą się różnić, np. wprawionym klejnotem.</p>
                 {item.shortAlt && item.shortAlt !== item.short && (
@@ -156,7 +216,7 @@ function ItemDetail({ tab, item, odmiana }: { tab: Tab; item: Item; odmiana?: Od
                     <DeclensionTable odmiana={odmiana} />
                 ) : (
                     <p className="detail__note">
-                        Nikt jej jeszcze nie przysłał. W grze: <code>odmien {item.short}</code>
+                        Nikt jej jeszcze nie przysłał.
                     </p>
                 )}
             </div>
@@ -265,23 +325,49 @@ export default function App() {
         setParams({ tab: next === 'bronie' ? '' : next });
     };
 
+    // What each item lacks, worked out once per snapshot
+    const gaps = useMemo(() => {
+        const map = new Map<Item, Gap[]>();
+        if (!data) return map;
+        for (const w of data.bronie) map.set(w, gapsOf('bronie', w, declensions));
+        for (const a of data.zbroje) map.set(a, gapsOf('zbroje', a, declensions));
+        for (const s of data.tarcze) map.set(s, gapsOf('tarcze', s, declensions));
+        return map;
+    }, [data, declensions]);
+    const gapsOfItem = (item: Item) => gaps.get(item) ?? [];
+
     const weapons = useMemo(() => sortRows((data?.bronie ?? []).filter(w =>
         matches(query, w.short, w.shortAlt, w.opis, w.typ, w.rodzaj)
         && (!filters.typ || w.typ === filters.typ)
         && (!filters.chwyt || w.chwyt === filters.chwyt)
         && (!filters.obrazenia || damageTypes(w).includes(filters.obrazenia))
         && (!filters.magik || w.magik === 1)
-        && (!filters.srebro || w.srebro === 1)), nameOf, sort), [data, query, filters, sort]);
+        && (!filters.srebro || w.srebro === 1)
+        && passesGaps(gaps.get(w) ?? [], filters.braki)), nameOf, sort), [data, query, filters, sort, gaps]);
 
     const armour = useMemo(() => sortRows((data?.zbroje ?? []).filter(a =>
         matches(query, a.short, a.shortAlt, a.opis, a.iLine)
         && (!filters.typ || a.typ === filters.typ)
         && (!filters.oslona || a.oslona === filters.oslona)
-        && (!filters.magik || a.magik === 1)), nameOf, sort), [data, query, filters, sort]);
+        && (!filters.magik || a.magik === 1)
+        && passesGaps(gaps.get(a) ?? [], filters.braki)), nameOf, sort), [data, query, filters, sort, gaps]);
 
     const shields = useMemo(() => sortRows((data?.tarcze ?? []).filter(s =>
         matches(query, s.short, s.shortAlt, s.opis, s.iLine)
-        && (!filters.magik || s.magik === 1)), nameOf, sort), [data, query, filters, sort]);
+        && (!filters.magik || s.magik === 1)
+        && passesGaps(gaps.get(s) ?? [], filters.braki)), nameOf, sort), [data, query, filters, sort, gaps]);
+
+    /** How many items of the current tab have each gap, for the filter's labels */
+    const gapCounts = useMemo(() => {
+        const counts = new Map<string, number>();
+        if (!data || tab === 'odmiany') return counts;
+        for (const item of data[tab] as Item[]) {
+            const own = gaps.get(item) ?? [];
+            counts.set(own.length ? 'any' : 'complete', (counts.get(own.length ? 'any' : 'complete') ?? 0) + 1);
+            for (const gap of own) counts.set(gap.id, (counts.get(gap.id) ?? 0) + 1);
+        }
+        return counts;
+    }, [data, tab, gaps]);
 
     const odmiany = useMemo(() => sortRows((data?.odmiany ?? []).filter(o =>
         matches(query, ...CASES.map(([key]) => o[key] as string))), o => o.mianownik, sort), [data, query, sort]);
@@ -298,7 +384,7 @@ export default function App() {
     const current = TABS.find(t => t.id === tab)!;
 
     const itemDetail = (item: Item) => (
-        <ItemDetail tab={tab} item={item} odmiana={declensions.get(item.short.toLowerCase())} />
+        <ItemDetail tab={tab} item={item} odmiana={declensions.get(item.short.toLowerCase())} gaps={gapsOfItem(item)} />
     );
 
     return (
@@ -362,6 +448,19 @@ export default function App() {
                 {data && tab === 'tarcze' && (
                     <Toggle label="magiczne" checked={filters.magik} onChange={magik => setFilter({ magik })} />
                 )}
+                {data && tab !== 'odmiany' && (
+                    <label className="filter">
+                        <span>Braki</span>
+                        <select value={filters.braki} onChange={e => setFilter({ braki: e.target.value as Filters['braki'] })}>
+                            <option value="">wszystkie</option>
+                            <option value="any">z brakami ({gapCounts.get('any') ?? 0})</option>
+                            {TAB_GAPS[tab].map(id => (
+                                <option key={id} value={id}>bez {gapLabel(id)} ({gapCounts.get(id) ?? 0})</option>
+                            ))}
+                            <option value="complete">kompletne ({gapCounts.get('complete') ?? 0})</option>
+                        </select>
+                    </label>
+                )}
                 <label className="filter filter--sort">
                     <span>Kolejność</span>
                     <select value={sort} onChange={e => setSort(e.target.value as Sort)}>
@@ -393,6 +492,7 @@ export default function App() {
                                     { label: 'Chwyt', cell: w => w.chwyt, className: 'list__wide' },
                                     { label: 'Obrażenia', cell: w => damageTypes(w).join(', ') },
                                     { label: '', cell: w => <Flags magik={w.magik} srebro={w.srebro} />, className: 'list__flags' },
+                                    { label: 'Braki', cell: w => <GapChips gaps={gapsOfItem(w)} />, className: 'list__gaps' },
                                 ]}
                             />
                         )}
@@ -406,6 +506,7 @@ export default function App() {
                                     { label: 'Typ', cell: a => a.typ },
                                     { label: 'Osłania', cell: a => a.oslona, className: 'list__wide' },
                                     { label: '', cell: a => <Flags magik={a.magik} />, className: 'list__flags' },
+                                    { label: 'Braki', cell: a => <GapChips gaps={gapsOfItem(a)} />, className: 'list__gaps' },
                                 ]}
                             />
                         )}
@@ -416,7 +517,9 @@ export default function App() {
                                 detail={itemDetail}
                                 columns={[
                                     { label: 'Nazwa', cell: s => <span className="name">{s.short}</span>, className: 'list__name' },
+                                    { label: 'Osłania', cell: s => s.oslona, className: 'list__wide' },
                                     { label: '', cell: s => <Flags magik={s.magik} />, className: 'list__flags' },
+                                    { label: 'Braki', cell: s => <GapChips gaps={gapsOfItem(s)} />, className: 'list__gaps' },
                                 ]}
                             />
                         )}

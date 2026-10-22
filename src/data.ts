@@ -139,6 +139,53 @@ export function odmianaIndex(odmiany: Odmiana[]): Map<string, Odmiana> {
     return new Map(odmiany.map(o => [o.mianownik.toLowerCase(), o]));
 }
 
+export type GapId = 'odmiana' | 'oslona' | 'typ' | 'rodzaj' | 'chwyt' | 'obrazenia';
+
+export interface Gap {
+    id: GapId;
+    /** For the chip on a row: "brak <label>" */
+    label: string;
+}
+
+const GAP_LABELS: Record<GapId, string> = {
+    odmiana: 'odmiany',
+    oslona: 'osłony',
+    typ: 'typu',
+    rodzaj: 'rodzaju',
+    chwyt: 'chwytu',
+    obrazenia: 'obrażeń',
+};
+
+export const GAP_IDS = Object.keys(GAP_LABELS) as GapId[];
+
+export function gapLabel(id: GapId): string {
+    return GAP_LABELS[id];
+}
+
+const empty = (value: string | undefined) => !value?.trim();
+
+/**
+ * What an item still lacks, so a player can fill it in by evaluating it in
+ * the game (ocen) or declining its name (odmien). Optional fields - the `i`
+ * line, the name as evaluating gives it - never count.
+ */
+export function gapsOf(kind: 'bronie' | 'zbroje' | 'tarcze', item: Item, declensions: Map<string, Odmiana>): Gap[] {
+    const ids: GapId[] = [];
+    if (kind === 'bronie') {
+        const w = item as Weapon;
+        if (empty(w.typ)) ids.push('typ');
+        if (empty(w.rodzaj)) ids.push('rodzaj');
+        if (empty(w.chwyt)) ids.push('chwyt');
+        if (!w.klute && !w.ciete && !w.obuch) ids.push('obrazenia');
+    } else {
+        const a = item as Armour | Shield;
+        if (kind === 'zbroje' && empty((a as Armour).typ)) ids.push('typ');
+        if (empty(a.oslona)) ids.push('oslona');
+    }
+    if (!declensions.has(item.short.toLowerCase())) ids.push('odmiana');
+    return ids.map(id => ({ id, label: GAP_LABELS[id] }));
+}
+
 /** Distinct values of a field, for a filter's choices, most common first */
 export function choices<T>(items: T[], pick: (item: T) => string): string[] {
     const counts = new Map<string, number>();

@@ -13,6 +13,8 @@
     --srebro: #c9d3de;
     --agreed: #6cc28a;
     --danger: #e57373;
+    --gap: #e0a050;
+    --gap-bg: rgba(224, 160, 80, 0.13);
     --mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
 }
 
@@ -31,6 +33,8 @@
         --magik: #7a4fd6;
         --srebro: #5d6b7a;
         --agreed: #2e8b57;
+        --gap: #a8650f;
+        --gap-bg: rgba(168, 101, 15, 0.1);
     }
 }
 
@@ -259,6 +263,42 @@ h1 {
 .list__flags {
     width: 1%;
     white-space: nowrap;
+}
+
+.list__gaps {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.gaps {
+    display: inline-flex;
+    gap: 0.25rem;
+}
+
+.gap {
+    padding: 0 0.4rem;
+    border-radius: 4px;
+    background: var(--gap-bg);
+    color: var(--gap);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.gap-help {
+    margin: 0 0 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-left: 3px solid var(--gap);
+    background: var(--gap-bg);
+    border-radius: 4px;
+}
+
+.gap-help ul {
+    margin: 0 0 0.25rem;
+    padding-left: 1.1rem;
+}
+
+.gap-help .detail__note {
+    margin: 0;
 }
 
 .list__detail td {

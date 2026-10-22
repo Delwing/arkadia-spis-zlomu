@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choices, damageTypes, fold, matches, normalize, odmianaIndex, pluralize, players, type Weapon } from './data';
+import { choices, damageTypes, fold, gapsOf, matches, normalize, odmianaIndex, pluralize, players, type Armour, type Shield, type Weapon } from './data';
 
 describe('matches', () => {
     it('finds every word, in any order, case and with or without Polish letters', () => {
@@ -52,5 +52,26 @@ describe('helpers', () => {
     it('indexes declensions by mianownik', () => {
         const odmiana = { mianownik: 'Plecak', dopelniacz: 'plecaka', celownik: '', biernik: '', narzednik: '', miejscownik: '', confirmations: 1 };
         expect(odmianaIndex([odmiana]).get('plecak')).toBe(odmiana);
+    });
+});
+
+describe('gapsOf', () => {
+    const weapon = { short: 'Dlugi miecz', typ: 'miecze', rodzaj: 'miecz', chwyt: 'w dowolnej rece', klute: 1, ciete: 1, obuch: 0, magik: 0, srebro: 0, opis: 'x', confirmations: 1 } as Weapon;
+    const declined = odmianaIndex([{ mianownik: 'dlugi miecz', dopelniacz: '', celownik: '', biernik: '', narzednik: '', miejscownik: '', confirmations: 1 }]);
+
+    it('finds nothing missing on a complete, declined item', () => {
+        expect(gapsOf('bronie', weapon, declined)).toEqual([]);
+    });
+
+    it('names what a weapon lacks, the declension last', () => {
+        const ids = gapsOf('bronie', { ...weapon, chwyt: ' ', klute: 0, ciete: 0 }, new Map()).map(g => g.id);
+        expect(ids).toEqual(['chwyt', 'obrazenia', 'odmiana']);
+    });
+
+    it('wants cover from armour and shields, and a type from armour only', () => {
+        const shield = { short: 'okragla tarcza', magik: 0, opis: 'x', oslona: '', confirmations: 1 } as Shield;
+        expect(gapsOf('tarcze', shield, new Map()).map(g => g.id)).toEqual(['oslona', 'odmiana']);
+        const armour = { ...shield, typ: '' } as unknown as Armour;
+        expect(gapsOf('zbroje', armour, new Map()).map(g => g.id)).toEqual(['typ', 'oslona', 'odmiana']);
     });
 });
