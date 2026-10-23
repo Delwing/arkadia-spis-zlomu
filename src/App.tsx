@@ -195,8 +195,15 @@ function ItemDetail({ tab, item, odmiana, gaps }: { tab: Tab; item: Item; odmian
         <div className="detail">
             <div className="detail__main">
                 <GapHelp gaps={gaps} item={item} />
-                <p className="detail__opis">{item.opis}</p>
-                <p className="detail__note">Opis z jednego egzemplarza: kolejne mogą się różnić, np. wprawionym klejnotem.</p>
+                {item.opis ? (
+                    <>
+                        <p className="detail__opis">{item.opis}</p>
+                        <p className="detail__note">Opis z jednego egzemplarza: kolejne mogą się różnić, np. wprawionym klejnotem.</p>
+                    </>
+                ) : (
+                    // Blanked when it turned out to describe another item; the next player to send it fills it
+                    <p className="detail__note">Brak opisu: uzupełni się, gdy ktoś oceni ten przedmiot.</p>
+                )}
                 {item.shortAlt && item.shortAlt !== item.short && (
                     <p className="detail__note">Przy ocenie: <em>{item.shortAlt}</em></p>
                 )}
