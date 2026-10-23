@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { choices, damageTypes, fold, gapsOf, matches, normalize, odmianaIndex, pluralize, players, type Armour, type Shield, type Weapon } from './data';
+import { choices, damageTypes, fold, gapsOf, matches, normalize, odmianaIndex, pluralize, players, type Armour, type Shield, type Weapon, type Wearable } from './data';
 
 describe('matches', () => {
     it('finds every word, in any order, case and with or without Polish letters', () => {
@@ -37,6 +37,8 @@ describe('normalize', () => {
     it('survives a snapshot with groups missing', () => {
         expect(normalize({ bronie: [{ short: 'x' }] })).toMatchObject({ bronie: [{ short: 'x' }], tarcze: [], odmiany: [] });
         expect(normalize(null).zbroje).toEqual([]);
+        // An export from before clothes and add-ons were kept
+        expect(normalize({ bronie: [] })).toMatchObject({ ubrania: [], dodatki: [] });
     });
 });
 
@@ -73,5 +75,11 @@ describe('gapsOf', () => {
         expect(gapsOf('tarcze', shield, new Map()).map(g => g.id)).toEqual(['oslona', 'odmiana']);
         const armour = { ...shield, typ: '' } as unknown as Armour;
         expect(gapsOf('zbroje', armour, new Map()).map(g => g.id)).toEqual(['typ', 'oslona', 'odmiana']);
+    });
+
+    it('wants only a material from clothes and add-ons', () => {
+        const obroza = { short: 'mosiezna obroza', material: 'mosiadzu', opis: 'x', confirmations: 1 } as Wearable;
+        expect(gapsOf('dodatki', obroza, new Map()).map(g => g.id)).toEqual(['odmiana']);
+        expect(gapsOf('ubrania', { ...obroza, material: '' }, new Map()).map(g => g.id)).toEqual(['material', 'odmiana']);
     });
 });

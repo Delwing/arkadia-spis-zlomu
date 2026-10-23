@@ -13,19 +13,23 @@ import {
     type Gap,
     type GapId,
     type Item,
+    type ItemKind,
     type Odmiana,
     type Shield,
     type Snapshot,
     type Weapon,
+    type Wearable,
 } from './data';
 import { useHashState } from './useHashState';
 
-type Tab = 'bronie' | 'zbroje' | 'tarcze' | 'odmiany';
+type Tab = ItemKind | 'odmiany';
 
 const TABS: { id: Tab; label: string; forms: [string, string, string] }[] = [
     { id: 'bronie', label: 'Bronie', forms: ['broń', 'bronie', 'broni'] },
     { id: 'zbroje', label: 'Zbroje', forms: ['zbroja', 'zbroje', 'zbroi'] },
     { id: 'tarcze', label: 'Tarcze', forms: ['tarcza', 'tarcze', 'tarcz'] },
+    { id: 'ubrania', label: 'Ubrania', forms: ['ubranie', 'ubrania', 'ubrań'] },
+    { id: 'dodatki', label: 'Dodatki', forms: ['dodatek', 'dodatki', 'dodatków'] },
     { id: 'odmiany', label: 'Odmiany', forms: ['odmiana', 'odmiany', 'odmian'] },
 ];
 
@@ -45,13 +49,14 @@ interface Filters {
     chwyt: string;
     obrazenia: string;
     oslona: string;
+    material: string;
     magik: boolean;
     srebro: boolean;
     /** '' all, 'any' with something missing, 'complete' nothing missing, or one gap */
     braki: '' | 'any' | 'complete' | GapId;
 }
 
-const NO_FILTERS: Filters = { typ: '', chwyt: '', obrazenia: '', oslona: '', magik: false, srebro: false, braki: '' };
+const NO_FILTERS: Filters = { typ: '', chwyt: '', obrazenia: '', oslona: '', material: '', magik: false, srebro: false, braki: '' };
 
 type ItemTab = Exclude<Tab, 'odmiany'>;
 
@@ -60,6 +65,8 @@ const TAB_GAPS: Record<ItemTab, GapId[]> = {
     bronie: ['odmiana', 'typ', 'rodzaj', 'chwyt', 'obrazenia'],
     zbroje: ['odmiana', 'typ', 'oslona'],
     tarcze: ['odmiana', 'oslona'],
+    ubrania: ['odmiana', 'material'],
+    dodatki: ['odmiana', 'material'],
 };
 
 function passesGaps(gaps: Gap[], braki: Filters['braki']): boolean {
@@ -137,6 +144,13 @@ function itemFacts(tab: Tab, item: Item): [string, ReactNode][] {
             ['Obrażenia', damageTypes(w).join(', ') || '—'],
             ['Magiczna', w.magik ? 'tak' : 'nie'],
             ['Ze srebra', w.srebro ? 'tak' : 'nie'],
+        ];
+    }
+    if (tab === 'ubrania' || tab === 'dodatki') {
+        const c = item as Wearable;
+        return [
+            ['Materiał', c.material || '—'],
+            ...(c.iLine ? [['W „i”', <code key="i">{c.iLine}</code>] as [string, ReactNode]] : []),
         ];
     }
     const a = item as Armour | Shield;
@@ -332,6 +346,8 @@ export default function App() {
         for (const w of data.bronie) map.set(w, gapsOf('bronie', w, declensions));
         for (const a of data.zbroje) map.set(a, gapsOf('zbroje', a, declensions));
         for (const s of data.tarcze) map.set(s, gapsOf('tarcze', s, declensions));
+        for (const c of data.ubrania) map.set(c, gapsOf('ubrania', c, declensions));
+        for (const d of data.dodatki) map.set(d, gapsOf('dodatki', d, declensions));
         return map;
     }, [data, declensions]);
     const gapsOfItem = (item: Item) => gaps.get(item) ?? [];
@@ -357,6 +373,13 @@ export default function App() {
         && (!filters.magik || s.magik === 1)
         && passesGaps(gaps.get(s) ?? [], filters.braki)), nameOf, sort), [data, query, filters, sort, gaps]);
 
+    const wearables = useMemo(() => tab === 'ubrania' || tab === 'dodatki'
+        ? sortRows((data?.[tab] ?? []).filter(c =>
+            matches(query, c.short, c.shortAlt, c.opis, c.material, c.iLine)
+            && (!filters.material || c.material === filters.material)
+            && passesGaps(gaps.get(c) ?? [], filters.braki)), nameOf, sort)
+        : [], [data, tab, query, filters, sort, gaps]);
+
     /** How many items of the current tab have each gap, for the filter's labels */
     const gapCounts = useMemo(() => {
         const counts = new Map<string, number>();
@@ -376,10 +399,13 @@ export default function App() {
         bronie: data?.bronie.length ?? 0,
         zbroje: data?.zbroje.length ?? 0,
         tarcze: data?.tarcze.length ?? 0,
+        ubrania: data?.ubrania.length ?? 0,
+        dodatki: data?.dodatki.length ?? 0,
         odmiany: data?.odmiany.length ?? 0,
     };
     const shown: Record<Tab, number> = {
-        bronie: weapons.length, zbroje: armour.length, tarcze: shields.length, odmiany: odmiany.length,
+        bronie: weapons.length, zbroje: armour.length, tarcze: shields.length,
+        ubrania: wearables.length, dodatki: wearables.length, odmiany: odmiany.length,
     };
     const current = TABS.find(t => t.id === tab)!;
 
@@ -393,7 +419,7 @@ export default function App() {
                 <div>
                     <h1>Spis złomu Arkadii</h1>
                     <p className="header__lead">
-                        Bronie, zbroje i tarcze oraz odmiany ich nazw, zebrane przez graczy, którzy w kliencie
+                        Bronie, zbroje, tarcze, ubrania i dodatki oraz odmiany ich nazw, zebrane przez graczy, którzy w kliencie
                         włączyli <em>Udostępniaj mój spis złomu i odmiany</em> (Ustawienia → Inne).
                     </p>
                 </div>
@@ -447,6 +473,9 @@ export default function App() {
                 )}
                 {data && tab === 'tarcze' && (
                     <Toggle label="magiczne" checked={filters.magik} onChange={magik => setFilter({ magik })} />
+                )}
+                {data && (tab === 'ubrania' || tab === 'dodatki') && (
+                    <Select label="Materiał" value={filters.material} options={choices(data[tab], c => c.material)} onChange={material => setFilter({ material })} />
                 )}
                 {data && tab !== 'odmiany' && (
                     <label className="filter">
@@ -520,6 +549,18 @@ export default function App() {
                                     { label: 'Osłania', cell: s => s.oslona, className: 'list__wide' },
                                     { label: '', cell: s => <Flags magik={s.magik} />, className: 'list__flags' },
                                     { label: 'Braki', cell: s => <GapChips gaps={gapsOfItem(s)} />, className: 'list__gaps' },
+                                ]}
+                            />
+                        )}
+                        {(tab === 'ubrania' || tab === 'dodatki') && (
+                            <Table<Wearable>
+                                rows={wearables}
+                                keyOf={nameOf}
+                                detail={itemDetail}
+                                columns={[
+                                    { label: 'Nazwa', cell: c => <span className="name">{c.short}</span>, className: 'list__name' },
+                                    { label: 'Materiał', cell: c => c.material, className: 'list__wide' },
+                                    { label: 'Braki', cell: c => <GapChips gaps={gapsOfItem(c)} />, className: 'list__gaps' },
                                 ]}
                             />
                         )}

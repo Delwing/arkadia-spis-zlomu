@@ -51,6 +51,17 @@ export interface Armour extends Voted {
     alternatives?: Armour[];
 }
 
+/** Clothes, and add-ons such as jewellery or a collar: evaluating says only what they are made of */
+export interface Wearable extends Voted {
+    short: string;
+    shortAlt?: string;
+    /** As evaluating says it: "welny", "mosiadzu" */
+    material: string;
+    opis: string;
+    iLine?: string;
+    alternatives?: Wearable[];
+}
+
 export interface Odmiana extends Voted {
     mianownik: string;
     dopelniacz: string;
@@ -66,10 +77,13 @@ export interface Snapshot {
     bronie: Weapon[];
     tarcze: Shield[];
     zbroje: Armour[];
+    ubrania: Wearable[];
+    dodatki: Wearable[];
     odmiany: Odmiana[];
 }
 
-export type Item = Weapon | Shield | Armour;
+export type Item = Weapon | Shield | Armour | Wearable;
+export type ItemKind = 'bronie' | 'zbroje' | 'tarcze' | 'ubrania' | 'dodatki';
 
 function asArray<T>(value: unknown): T[] {
     return Array.isArray(value) ? (value as T[]) : [];
@@ -82,6 +96,9 @@ export function normalize(raw: unknown): Snapshot {
         bronie: asArray<Weapon>(s.bronie),
         tarcze: asArray<Shield>(s.tarcze),
         zbroje: asArray<Armour>(s.zbroje),
+        // Absent from exports made before the Worker kept them
+        ubrania: asArray<Wearable>(s.ubrania),
+        dodatki: asArray<Wearable>(s.dodatki),
         odmiany: asArray<Odmiana>(s.odmiany),
     };
 }
@@ -139,7 +156,7 @@ export function odmianaIndex(odmiany: Odmiana[]): Map<string, Odmiana> {
     return new Map(odmiany.map(o => [o.mianownik.toLowerCase(), o]));
 }
 
-export type GapId = 'odmiana' | 'oslona' | 'typ' | 'rodzaj' | 'chwyt' | 'obrazenia';
+export type GapId = 'odmiana' | 'oslona' | 'typ' | 'rodzaj' | 'chwyt' | 'obrazenia' | 'material';
 
 export interface Gap {
     id: GapId;
@@ -154,6 +171,7 @@ const GAP_LABELS: Record<GapId, string> = {
     rodzaj: 'rodzaju',
     chwyt: 'chwytu',
     obrazenia: 'obrażeń',
+    material: 'materiału',
 };
 
 export const GAP_IDS = Object.keys(GAP_LABELS) as GapId[];
@@ -169,7 +187,7 @@ const empty = (value: string | undefined) => !value?.trim();
  * the game (ocen) or declining its name (odmien). Optional fields - the `i`
  * line, the name as evaluating gives it - never count.
  */
-export function gapsOf(kind: 'bronie' | 'zbroje' | 'tarcze', item: Item, declensions: Map<string, Odmiana>): Gap[] {
+export function gapsOf(kind: ItemKind, item: Item, declensions: Map<string, Odmiana>): Gap[] {
     const ids: GapId[] = [];
     if (kind === 'bronie') {
         const w = item as Weapon;
@@ -177,6 +195,8 @@ export function gapsOf(kind: 'bronie' | 'zbroje' | 'tarcze', item: Item, declens
         if (empty(w.rodzaj)) ids.push('rodzaj');
         if (empty(w.chwyt)) ids.push('chwyt');
         if (!w.klute && !w.ciete && !w.obuch) ids.push('obrazenia');
+    } else if (kind === 'ubrania' || kind === 'dodatki') {
+        if (empty((item as Wearable).material)) ids.push('material');
     } else {
         const a = item as Armour | Shield;
         if (kind === 'zbroje' && empty((a as Armour).typ)) ids.push('typ');
