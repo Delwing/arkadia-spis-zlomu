@@ -12,6 +12,7 @@ import {
     type Armour,
     type Gap,
     type GapId,
+    type Ignored,
     type Item,
     type ItemKind,
     type Odmiana,
@@ -22,7 +23,7 @@ import {
 } from './data';
 import { useHashState } from './useHashState';
 
-type Tab = ItemKind | 'odmiany';
+type Tab = ItemKind | 'odmiany' | 'ignorowane';
 
 const TABS: { id: Tab; label: string; forms: [string, string, string] }[] = [
     { id: 'bronie', label: 'Bronie', forms: ['broń', 'bronie', 'broni'] },
@@ -31,6 +32,7 @@ const TABS: { id: Tab; label: string; forms: [string, string, string] }[] = [
     { id: 'ubrania', label: 'Ubrania', forms: ['ubranie', 'ubrania', 'ubrań'] },
     { id: 'dodatki', label: 'Dodatki', forms: ['dodatek', 'dodatki', 'dodatków'] },
     { id: 'odmiany', label: 'Odmiany', forms: ['odmiana', 'odmiany', 'odmian'] },
+    { id: 'ignorowane', label: 'Ignorowane', forms: ['pozycja', 'pozycje', 'pozycji'] },
 ];
 
 const CASES: [keyof Odmiana, string][] = [
@@ -58,7 +60,9 @@ interface Filters {
 
 const NO_FILTERS: Filters = { typ: '', chwyt: '', obrazenia: '', oslona: '', material: '', magik: false, srebro: false, braki: '' };
 
-type ItemTab = Exclude<Tab, 'odmiany'>;
+type ItemTab = Exclude<Tab, 'odmiany' | 'ignorowane'>;
+
+const isItemTab = (tab: Tab): tab is ItemTab => tab !== 'odmiany' && tab !== 'ignorowane';
 
 /** The gaps each kind can have, in the order the filter offers them */
 const TAB_GAPS: Record<ItemTab, GapId[]> = {
@@ -390,7 +394,7 @@ export default function App() {
     /** How many items of the current tab have each gap, for the filter's labels */
     const gapCounts = useMemo(() => {
         const counts = new Map<string, number>();
-        if (!data || tab === 'odmiany') return counts;
+        if (!data || !isItemTab(tab)) return counts;
         for (const item of data[tab] as Item[]) {
             const own = gaps.get(item) ?? [];
             counts.set(own.length ? 'any' : 'complete', (counts.get(own.length ? 'any' : 'complete') ?? 0) + 1);
@@ -402,6 +406,9 @@ export default function App() {
     const odmiany = useMemo(() => sortRows((data?.odmiany ?? []).filter(o =>
         matches(query, ...CASES.map(([key]) => o[key] as string))), o => o.mianownik, sort), [data, query, sort]);
 
+    const ignored = useMemo(() => sortRows((data?.ignorowane ?? []).filter(i =>
+        matches(query, i.text)), i => i.text, sort), [data, query, sort]);
+
     const counts: Record<Tab, number> = {
         bronie: data?.bronie.length ?? 0,
         zbroje: data?.zbroje.length ?? 0,
@@ -409,10 +416,11 @@ export default function App() {
         ubrania: data?.ubrania.length ?? 0,
         dodatki: data?.dodatki.length ?? 0,
         odmiany: data?.odmiany.length ?? 0,
+        ignorowane: data?.ignorowane.length ?? 0,
     };
     const shown: Record<Tab, number> = {
         bronie: weapons.length, zbroje: armour.length, tarcze: shields.length,
-        ubrania: wearables.length, dodatki: wearables.length, odmiany: odmiany.length,
+        ubrania: wearables.length, dodatki: wearables.length, odmiany: odmiany.length, ignorowane: ignored.length,
     };
     const current = TABS.find(t => t.id === tab)!;
 
@@ -457,7 +465,7 @@ export default function App() {
                 <input
                     className="search"
                     type="search"
-                    placeholder={tab === 'odmiany' ? 'Szukaj w odmianach…' : 'Szukaj po nazwie, opisie, typie…'}
+                    placeholder={tab === 'odmiany' ? 'Szukaj w odmianach…' : tab === 'ignorowane' ? 'Szukaj w ignorowanych…' : 'Szukaj po nazwie, opisie, typie…'}
                     value={query}
                     onChange={e => setParams({ q: e.target.value })}
                     autoFocus
@@ -484,7 +492,7 @@ export default function App() {
                 {data && (tab === 'ubrania' || tab === 'dodatki') && (
                     <Select label="Materiał" value={filters.material} options={choices(data[tab], c => c.material)} onChange={material => setFilter({ material })} />
                 )}
-                {data && tab !== 'odmiany' && (
+                {data && isItemTab(tab) && (
                     <label className="filter">
                         <span>Braki</span>
                         <select value={filters.braki} onChange={e => setFilter({ braki: e.target.value as Filters['braki'] })}>
@@ -568,6 +576,25 @@ export default function App() {
                                     { label: 'Nazwa', cell: c => <span className="name">{c.short}</span>, className: 'list__name' },
                                     { label: 'Materiał', cell: c => c.material, className: 'list__wide' },
                                     { label: 'Braki', cell: c => <GapChips gaps={gapsOfItem(c)} />, className: 'list__gaps' },
+                                ]}
+                            />
+                        )}
+                        {tab === 'ignorowane' && (
+                            <Table<Ignored>
+                                rows={ignored}
+                                keyOf={i => i.text}
+                                detail={i => (
+                                    <div className="detail detail--single">
+                                        <p className="detail__note">
+                                            Gracze schowali to w oknie <em>Zbroja</em> klienta (Do uzupełnienia → Ignoruj):
+                                            przedmiot gildiowy, klubowy albo inny, którego nie trzeba przypisywać do złomu.
+                                            {' '}Klient z udostępnianiem chowa go też u innych; każdy może go u siebie przywrócić.
+                                        </p>
+                                        <p className="detail__note">Potwierdzone przez: {players(i.confirmations)}.</p>
+                                    </div>
+                                )}
+                                columns={[
+                                    { label: 'Przedmiot albo linia z i', cell: i => <span className="name">{i.text}</span>, className: 'list__name' },
                                 ]}
                             />
                         )}

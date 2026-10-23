@@ -72,6 +72,15 @@ export interface Odmiana extends Voted {
     alternatives?: Odmiana[];
 }
 
+/**
+ * Worn, but nothing the client's armour window needs to place: a guild or club
+ * item, as `i` names it or the whole line it words it in. Ignored by players.
+ */
+export interface Ignored extends Voted {
+    text: string;
+    alternatives?: Ignored[];
+}
+
 export interface Snapshot {
     generatedAt: string;
     bronie: Weapon[];
@@ -80,6 +89,7 @@ export interface Snapshot {
     ubrania: Wearable[];
     dodatki: Wearable[];
     odmiany: Odmiana[];
+    ignorowane: Ignored[];
 }
 
 export type Item = Weapon | Shield | Armour | Wearable;
@@ -100,6 +110,7 @@ export function normalize(raw: unknown): Snapshot {
         ubrania: asArray<Wearable>(s.ubrania),
         dodatki: asArray<Wearable>(s.dodatki),
         odmiany: asArray<Odmiana>(s.odmiany),
+        ignorowane: asArray<Ignored>(s.ignorowane),
     };
 }
 

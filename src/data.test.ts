@@ -38,7 +38,7 @@ describe('normalize', () => {
         expect(normalize({ bronie: [{ short: 'x' }] })).toMatchObject({ bronie: [{ short: 'x' }], tarcze: [], odmiany: [] });
         expect(normalize(null).zbroje).toEqual([]);
         // An export from before clothes and add-ons were kept
-        expect(normalize({ bronie: [] })).toMatchObject({ ubrania: [], dodatki: [] });
+        expect(normalize({ bronie: [] })).toMatchObject({ ubrania: [], dodatki: [], ignorowane: [] });
     });
 });
 
