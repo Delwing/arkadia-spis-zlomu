@@ -284,6 +284,21 @@ h1 {
     font-weight: 600;
 }
 
+.ignore-state {
+    padding: 0 0.4rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-faint);
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.ignore-state--hidden {
+    border-color: transparent;
+    background: var(--accent-soft);
+    color: var(--accent);
+}
+
 .gap-help {
     margin: 0 0 0.75rem;
     padding: 0.5rem 0.75rem;

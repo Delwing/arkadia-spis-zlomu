@@ -89,6 +89,15 @@ function GapChips({ gaps }: { gaps: Gap[] }) {
     );
 }
 
+/** Confirmations at which the client hides an ignore for every sharing player (CROWD_IGNORE_MIN in the client's armor.ts) */
+const IGNORE_HIDES_FROM = 2;
+
+function IgnoreState({ confirmations }: { confirmations: number }) {
+    return confirmations >= IGNORE_HIDES_FROM
+        ? <span className="ignore-state ignore-state--hidden" title="Klient chowa to u wszystkich, którzy udostępniają spis">chowane</span>
+        : <span className="ignore-state" title={`Za mało graczy, by chować: klient tylko podpowiada (chowa od ${IGNORE_HIDES_FROM})`}>podpowiedź</span>;
+}
+
 type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: Snapshot };
 
 interface Column<T> {
@@ -588,13 +597,16 @@ export default function App() {
                                         <p className="detail__note">
                                             Gracze schowali to w oknie <em>Zbroja</em> klienta (Do uzupełnienia → Ignoruj):
                                             przedmiot gildiowy, klubowy albo inny, którego nie trzeba przypisywać do złomu.
-                                            {' '}Klient z udostępnianiem chowa go też u innych; każdy może go u siebie przywrócić.
+                                            {' '}Klient z udostępnianiem chowa go też u innych, gdy schowa go co najmniej {players(IGNORE_HIDES_FROM)};
+                                            {' '}wcześniej tylko podpowiada, że to może przedmiot gildiowy. Każdy może go u siebie przywrócić,
+                                            {' '}a kto przywróci to, co sam schował, wycofuje je ze wspólnego spisu.
                                         </p>
                                         <p className="detail__note">Potwierdzone przez: {players(i.confirmations)}.</p>
                                     </div>
                                 )}
                                 columns={[
                                     { label: 'Przedmiot albo linia z i', cell: i => <span className="name">{i.text}</span>, className: 'list__name' },
+                                    { label: 'Stan', cell: i => <IgnoreState confirmations={i.confirmations} />, className: 'list__gaps' },
                                 ]}
                             />
                         )}
